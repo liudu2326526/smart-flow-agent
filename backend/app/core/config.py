@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     
     # Vector DB
     VECTOR_DB_PATH: str = "./data/chroma_db"
+
+    # Elasticsearch
+    ES_URL: str = "https://es-15gv7mh7.public.tencentelasticsearch.com:9200"
+    ES_INDEX_NAME: str = "langchain_demo_index"
+    ES_USER: str = "mlm-user"
+    ES_PASSWORD: str = "1ZzIFRasdf+pHs8E8d123"
+    EMBEDDING_MODEL: str = "doubao-embedding-text-240715"
     
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 

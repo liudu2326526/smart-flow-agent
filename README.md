@@ -91,7 +91,9 @@ smart-flow-agent/
 │   │   ├── api/            # API 路由 (Chat, Conversations)
 │   │   ├── core/           # 核心配置
 │   │   ├── db/             # 数据库模型与初始化
-│   │   ├── services/       # 业务逻辑 (Agent Service)
+│   │   ├── services/       # 业务逻辑
+│   │   │   ├── agent_service.py # Agent 核心逻辑
+│   │   │   └── tools.py         # 工具定义 (Tools)
 │   │   └── schemas/        # Pydantic 模型
 │   ├── data/               # SQLite 数据文件
 │   ├── main.py             # 入口文件

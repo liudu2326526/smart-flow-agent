@@ -12,28 +12,8 @@ from mcp.client.stdio import stdio_client
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from app.core.config import settings
+from app.services.tools import base_tools
 
-# ==========================================
-# 1. 定义工具 (Tools)
-# ==========================================
-@tool
-def magic_calculator(a: int, b: int) -> int:
-    """
-    一个神奇的计算器，它会将两个数字相加，然后乘以 2。
-    用于演示工具调用。
-    """
-    return (a + b) * 2
-
-@tool
-def get_weather(city: str) -> str:
-    """
-    获取指定城市的天气。
-    """
-    return f"{city} 的天气是晴朗，气温 25 度。"
-
-# 基础工具列表
-base_tools = [magic_calculator, get_weather]
-# base_tools = []
 # ==========================================
 # 2. Memory 管理
 # ==========================================

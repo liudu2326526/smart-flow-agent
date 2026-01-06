@@ -1,0 +1,42 @@
+# Runtime: python>=3.12
+# conda activate smart-flow-agent
+
+# Web Framework
+fastapi>=0.110.0
+uvicorn>=0.27.0
+python-multipart>=0.0.9
+aiofiles>=23.2.1
+
+# Database
+sqlalchemy==2.0.45
+sqlmodel>=0.0.16
+
+# AI & Agent Framework
+langchain==1.2.0
+langchain-classic==1.0.1
+langchain-community==0.4.1
+langchain-core==1.2.5
+langchain-openai==1.1.6
+langchain-text-splitters==1.1.0
+langgraph==1.0.5
+langgraph-checkpoint==3.0.1
+langgraph-prebuilt==1.0.5
+langgraph-sdk==0.3.1
+langsmith==0.5.2
+openai==2.14.0
+
+# MCP
+mcp==1.21.0
+langchain-mcp-adapters==0.1.12
+
+# Configuration & Utilities
+python-dotenv==1.2.1
+pydantic==2.12.5
+pydantic-settings==2.12.0
+pydantic_core==2.41.5
+httpx==0.28.1
+httpx-sse==0.4.3
+tenacity==9.1.2
+tiktoken==0.12.0
+tqdm==4.67.1
+orjson==3.11.5

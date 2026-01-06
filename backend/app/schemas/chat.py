@@ -1,0 +1,25 @@
+from typing import List, Optional, Any, Dict
+from pydantic import BaseModel, Field
+
+class Message(BaseModel):
+    role: str
+    content: str
+
+class ChatCompletionRequest(BaseModel):
+    model: str = "smart-flow-agent-v1"
+    messages: List[Message]
+    stream: bool = True
+    session_id: str
+    file_ids: Optional[List[str]] = []
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "model": "smart-flow-agent-v1",
+                "messages": [
+                    {"role": "user", "content": "Hello"}
+                ],
+                "stream": True,
+                "session_id": "conv_123"
+            }
+        }

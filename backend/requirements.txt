@@ -26,6 +26,9 @@ langsmith==0.5.2
 langchain-elasticsearch==1.0.0
 openai==2.14.0
 
+# Monitoring
+langfuse>=2.0.0
+
 # MCP
 mcp==1.21.0
 langchain-mcp-adapters==0.1.12

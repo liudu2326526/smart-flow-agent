@@ -118,12 +118,23 @@ const handleUpload = (files: FileItem[]) => {
           <div class="name">{{ msg.type === 'human' ? 'User' : 'SmartFlow Agent' }}</div>
           
           <!-- Thinking State -->
-          <div v-if="msg.status === 'thinking'" class="thinking-bubble">
+          <div v-if="msg.status === 'thinking' && !msg.reasoning_content" class="thinking-bubble">
             <icon-loading spin /> 正在思考中...
+          </div>
+
+          <!-- Deep Thinking Content -->
+          <div v-if="msg.reasoning_content" class="reasoning-card">
+            <details :open="msg.status !== 'completed'">
+              <summary>
+                <icon-bulb /> 深度思考过程
+                <span class="thinking-status" v-if="msg.status !== 'completed'"><icon-loading spin /></span>
+              </summary>
+              <div class="reasoning-body markdown-body">{{ msg.reasoning_content }}</div>
+            </details>
           </div>
           
           <!-- Message Content -->
-          <div class="bubble" v-if="msg.content || msg.status !== 'thinking'">
+          <div class="bubble" v-if="msg.content || (msg.status !== 'thinking' && !msg.reasoning_content)">
             <div class="markdown-body">{{ msg.content }}</div>
             <span v-if="msg.status === 'writing'" class="cursor">|</span>
           </div>
@@ -264,6 +275,52 @@ const handleUpload = (files: FileItem[]) => {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .reasoning-card {
+    background: var(--color-fill-1);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    max-width: 100%;
+    
+    details {
+      &[open] summary {
+        border-bottom: 1px solid var(--color-border);
+      }
+    }
+
+    summary {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--color-text-3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      
+      &:hover {
+        background: var(--color-fill-2);
+      }
+      
+      &::marker {
+        color: var(--color-text-4);
+      }
+      
+      .thinking-status {
+        margin-left: auto;
+      }
+    }
+
+    .reasoning-body {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--color-text-2);
+      white-space: pre-wrap;
+      line-height: 1.6;
+      border-top: 1px solid var(--color-fill-2); /* Fallback */
+    }
   }
 }
 

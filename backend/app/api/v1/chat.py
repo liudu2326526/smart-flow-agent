@@ -24,21 +24,21 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
     # Create the ID for this completion
     completion_id = f"chatcmpl-{int(time.time())}"
     
-    # 1. Send "thinking" event
-    thinking_data = {
-        "id": completion_id,
-        "object": "chat.completion.chunk",
-        "created": int(time.time()),
-        "model": model_name,
-        "choices": [
-            {
-                "index": 0,
-                "delta": {"role": "assistant", "reasoning_content": "正在思考并规划任务..."},
-                "finish_reason": None
-            }
-        ]
-    }
-    yield f"data: {json.dumps(thinking_data)}\n\n"
+    # 1. Send "thinking" event (Optional now since real thinking comes from LLM)
+    # thinking_data = {
+    #     "id": completion_id,
+    #     "object": "chat.completion.chunk",
+    #     "created": int(time.time()),
+    #     "model": model_name,
+    #     "choices": [
+    #         {
+    #             "index": 0,
+    #             "delta": {"role": "assistant", "reasoning_content": "正在思考并规划任务..."},
+    #             "finish_reason": None
+    #         }
+    #     ]
+    # }
+    # yield f"data: {json.dumps(thinking_data)}\n\n"
 
     # try:
         # Check if we have a valid API key to use real LLM
@@ -51,7 +51,21 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
         if not user_input:
             return
 
-        async for content in agent_service.chat(session_id, user_input):
+        async for chunk_str in agent_service.chat(session_id, user_input):
+            try:
+                chunk_data = json.loads(chunk_str)
+            except json.JSONDecodeError:
+                continue
+
+            delta = {}
+            if "reasoning_content" in chunk_data:
+                delta["reasoning_content"] = chunk_data["reasoning_content"]
+            if "content" in chunk_data:
+                delta["content"] = chunk_data["content"]
+            
+            if not delta:
+                continue
+
             response_data = {
                 "id": completion_id,
                 "object": "chat.completion.chunk",
@@ -60,7 +74,7 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
                 "choices": [
                     {
                         "index": 0,
-                        "delta": {"content": content},
+                        "delta": delta,
                         "finish_reason": None
                     }
                 ]

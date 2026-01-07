@@ -4,6 +4,7 @@ export interface Message {
   id: string;
   type: 'human' | 'ai' | 'tool';
   content: string;
+  reasoning_content?: string;
   status?: 'thinking' | 'writing' | 'completed' | 'error';
   toolCalls?: any[];
   createdAt: string;
@@ -30,6 +31,7 @@ export function useChat(options: UseChatOptions = {}) {
           id: msg.id.toString(),
           type: msg.type,
           content: msg.content,
+          reasoning_content: msg.reasoning_content,
           status: 'completed',
           createdAt: msg.created_at
         }));
@@ -124,9 +126,10 @@ export function useChat(options: UseChatOptions = {}) {
                   aiMsg.content += delta.content;
                 }
                 if (delta.reasoning_content) {
-                  // Handle reasoning if we want to show it separately
-                  // For now, maybe just append or ignore
-                  // aiMsg.status = 'thinking'; // Or show specific UI
+                  if (!aiMsg.reasoning_content) {
+                    aiMsg.reasoning_content = '';
+                  }
+                  aiMsg.reasoning_content += delta.reasoning_content;
                 }
               }
             } catch (e) {

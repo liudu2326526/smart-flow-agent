@@ -1,15 +1,60 @@
 import asyncio
+import json
+import logging
 from typing import List, AsyncGenerator
 from contextlib import AsyncExitStack
+from pathlib import Path
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool, Tool
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from langchain_mcp_adapters.tools import load_mcp_tools
+import langchain_openai.chat_models.base as base_module
+from app.utils.logger import get_logger
+
+# 配置日志
+logger = get_logger(__name__, "agent_service.log")
+
+# ==========================================
+# Monkey Patch: 支持 reasoning_content
+# ==========================================
+# 保存原始函数
+_original_convert_dict_to_message = base_module._convert_dict_to_message
+
+def _patched_convert_dict_to_message(_dict):
+    # 调用原始转换逻辑
+    message = _original_convert_dict_to_message(_dict)
+    
+    # 如果是 AIMessage 且原始字典中有 reasoning_content，则注入到 additional_kwargs
+    if isinstance(message, AIMessage) and "reasoning_content" in _dict:
+        message.additional_kwargs["reasoning_content"] = _dict["reasoning_content"]
+    
+    return message
+
+# 应用 Patch
+base_module._convert_dict_to_message = _patched_convert_dict_to_message
+# ==========================================
+
+# ==========================================
+# Monkey Patch 2: 支持流式 reasoning_content
+# ==========================================
+_original_convert_delta_to_message_chunk = base_module._convert_delta_to_message_chunk
+
+def _patched_convert_delta_to_message_chunk(_dict, default_class):
+    # 调用原始函数
+    chunk = _original_convert_delta_to_message_chunk(_dict, default_class)
+    
+    # 注入 reasoning_content
+    if isinstance(chunk, AIMessageChunk) and "reasoning_content" in _dict:
+        chunk.additional_kwargs["reasoning_content"] = _dict["reasoning_content"]
+        
+    return chunk
+
+base_module._convert_delta_to_message_chunk = _patched_convert_delta_to_message_chunk
+# End Monkey Patch
+
+
 
 from app.core.config import settings
 from app.services.tools import base_tools
@@ -39,10 +84,28 @@ class AgentService:
         self.mcp_tools: List[Tool] = []
         self.agent = None
         self._initialized = False
+        self.langfuse_handler = None
 
     async def initialize(self):
         if self._initialized:
             return
+
+        logger.info("Initializing AgentService...")
+
+        # 0. 初始化 Langfuse (Monitoring)
+        try:
+            import os
+            os.environ["LANGFUSE_PUBLIC_KEY"] = settings.LANGFUSE_PUBLIC_KEY
+            os.environ["LANGFUSE_SECRET_KEY"] = settings.LANGFUSE_SECRET_KEY
+            os.environ["LANGFUSE_HOST"] = settings.LANGFUSE_HOST
+            
+            from langfuse.langchain import CallbackHandler
+            self.langfuse_handler = CallbackHandler()
+            logger.info("✅ Langfuse Monitoring Initialized")
+        except ImportError as e:
+            logger.warning(f"Langfuse package or CallbackHandler not found: {e}. Please run `pip install langfuse`.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Langfuse: {e}")
 
         # 1. 初始化 LLM
         if settings.OPENAI_API_KEY:
@@ -51,9 +114,15 @@ class AgentService:
                 temperature=0,
                 base_url=settings.OPENAI_BASE_URL if settings.OPENAI_BASE_URL else None,
                 api_key=settings.OPENAI_API_KEY,
-                streaming=True
+                streaming=True,
+                extra_body={
+                    "thinking": {
+                        "type": "enabled"
+                    }
+                }
             )
         else:
+            logger.error("OPENAI_API_KEY is not set")
             raise ValueError("OPENAI_API_KEY is not set")
 
         # 2. 加载 MCP 工具 (模拟连接，未来可从配置读取)
@@ -69,6 +138,7 @@ class AgentService:
         self.agent = create_agent(self.llm, all_tools)
         
         self._initialized = True
+        logger.info(f"✅ Agent Service Initialized with {len(all_tools)} tools.")
         print(f"✅ Agent Service Initialized with {len(all_tools)} tools.")
 
     async def generate_summary_title(self, session_id: str):
@@ -95,6 +165,7 @@ class AgentService:
         conversation_text = "\n".join([f"{m.type}: {m.content}" for m in messages[:4]])
         
         try:
+            logger.info(f"Generating title for session {session_id}")
             title = await chain.ainvoke({"conversation": conversation_text})
             title = title.strip().replace('"', '').replace("'", "")
             
@@ -109,33 +180,20 @@ class AgentService:
                     conv.title = title
                     session.add(conv)
                     session.commit()
+                    logger.info(f"✅ Title updated for session {session_id}: {title}")
                     print(f"✅ Title updated for session {session_id}: {title}")
         except Exception as e:
+            logger.error(f"❌ Failed to generate title: {e}")
             print(f"❌ Failed to generate title: {e}")
 
     async def chat(self, session_id: str, user_input: str) -> AsyncGenerator[str, None]:
-        # ... (Existing chat implementation)
-
         if not self._initialized:
             await self.initialize()
 
+        logger.info(f"Starting chat for session {session_id} with input: {user_input[:50]}...")
+        
         # 1. 获取历史记录
         history = get_chat_history(session_id)
-        
-        # 2. 构造临时上下文（不立即保存用户消息）
-        # 我们希望在 AI 回复生成完毕后，一起保存 HumanMessage 和 AIMessage
-        # 这样可以保证事务性（虽然 SQLite 不是严格事务，但逻辑上是一次 turn）
-        # 但 LangGraph 需要完整的 history。
-        
-        # 方案：先不 add_user_message 到 history，而是构造一个新的 list
-        # current_messages = history.messages + [HumanMessage(content=user_input)]
-        
-        # 但 history.messages 是从 DB 读出来的。
-        # 如果我们不 save，下次请求就没了。
-        # 所以必须 save。
-        
-        # 用户的意思是：防止只存入用户问题（即 AI 生成失败时，只有用户问题被存了）
-        # 可以在 try-except 中处理，或者在最后一起保存。
         
         # 采用 "最后一起保存" 策略
         # 1. 获取当前 DB 中的历史
@@ -145,25 +203,71 @@ class AgentService:
         current_messages = db_messages + [HumanMessage(content=user_input)]
         
         accumulated_content = ""
+        accumulated_reasoning = ""
         
         # 3. 流式调用
         try:
-            async for chunk, metadata in self.agent.astream(
+            is_thinking = False
+            # Log tool calls
+            async for event in self.agent.astream_events(
                 {"messages": current_messages}, 
-                stream_mode="messages"
+                version="v1",
+                config={"callbacks": [self.langfuse_handler] if self.langfuse_handler else []}
             ):
-                if isinstance(chunk, AIMessageChunk) and chunk.content:
-                    content = chunk.content
-                    accumulated_content += content
-                    yield content
+                kind = event["event"]
+                
+                # Log Tool Start
+                if kind == "on_tool_start":
+                    logger.info(f"🛠️  Tool Call Start: {event['name']} Input: {event['data'].get('input')}")
+                
+                # Log Tool End
+                elif kind == "on_tool_end":
+                    logger.info(f"✅ Tool Call End: {event['name']} Output: {str(event['data'].get('output'))[:100]}...")
+
+                # Handle Streaming Content (AIMessageChunk)
+                elif kind == "on_chat_model_stream":
+                    chunk = event["data"]["chunk"]
+                    if isinstance(chunk, AIMessageChunk):
+                        # 检查是否有思考内容
+                        reasoning_content = None
+                        if chunk.additional_kwargs and "reasoning_content" in chunk.additional_kwargs:
+                            reasoning_content = chunk.additional_kwargs["reasoning_content"]
+                        
+                        content = chunk.content
+                        
+                        if reasoning_content:
+                             if not is_thinking:
+                                 logger.info("🤖 AI Start Thinking...")
+                                 is_thinking = True
+                             accumulated_reasoning += reasoning_content
+                             yield json.dumps({"reasoning_content": reasoning_content})
+                             
+                        if content:
+                            if is_thinking:
+                                logger.info("💡 AI End Thinking, Start Responding...")
+                                is_thinking = False
+                            accumulated_content += content
+                            yield json.dumps({"content": content})
+
+            if is_thinking:
+                 logger.info("💡 AI End Thinking (Stream Ended)")
             
             # 4. 成功生成后，同时保存用户消息和 AI 消息
             # 注意：这里有轻微的竞态风险，但在单用户 session 场景下可忽略
-            if accumulated_content:
+            if accumulated_content or accumulated_reasoning:
+                logger.info(f"Chat completed for session {session_id}. Saving history.")
                 history.add_user_message(user_input)
-                history.add_ai_message(accumulated_content)
+                # 保存 AI 消息，包含思考内容
+                ai_msg = AIMessage(
+                    content=accumulated_content, 
+                    additional_kwargs={"reasoning_content": accumulated_reasoning} if accumulated_reasoning else {}
+                )
+                history.add_message(ai_msg)
+            else:
+                logger.warning(f"No content generated for session {session_id}")
                         
         except Exception as e:
+            logger.error(f"Agent Execution Error: {e}", exc_info=True)
             print(f"Agent Execution Error: {e}")
             yield f"[Error: {str(e)}]"
             # 出错时不保存任何消息，或者只保存用户消息？
@@ -178,18 +282,26 @@ class AgentService:
         messages = []
         for msg in history.messages:
             role = "user"
+            reasoning_content = None
             if isinstance(msg, AIMessage):
                 role = "assistant"
+                # 从 additional_kwargs 中提取思考内容
+                if msg.additional_kwargs and "reasoning_content" in msg.additional_kwargs:
+                    reasoning_content = msg.additional_kwargs["reasoning_content"]
             elif isinstance(msg, HumanMessage):
                 role = "user"
             
             # 暂时简化处理，只返回 type 和 content
             # 实际场景可能需要处理 tool calls
-            messages.append({
+            message_data = {
                 "role": role,
                 "content": msg.content,
                 "type": "human" if role == "user" else "ai" # 兼容 API 文档中的 type
-            })
+            }
+            if reasoning_content:
+                message_data["reasoning_content"] = reasoning_content
+                
+            messages.append(message_data)
         return messages
 
 # 单例模式

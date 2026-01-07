@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # LLM
     OPENAI_API_KEY: str = "e07ae987-1258-4bb5-94bb-277bdc9fc310"
     OPENAI_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
-    OPENAI_MODEL: str = "deepseek-v3-2-251201"
+    OPENAI_MODEL: str = "doubao-seed-1-6-251015"
     
     # Vector DB
     VECTOR_DB_PATH: str = "./data/chroma_db"
@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     ES_PASSWORD: str = "1ZzIFRasdf+pHs8E8d123"
     EMBEDDING_MODEL: str = "doubao-embedding-text-240715"
     
+    # Langfuse Monitoring
+    LANGFUSE_PUBLIC_KEY: str = "pk-lf-2b899497-e296-47ba-bc20-9701f9c53ec7"
+    LANGFUSE_SECRET_KEY: str = "sk-lf-3773953d-57c2-45c6-b0c4-2dc6dd0adc43" # 需替换为真实 Secret Key
+    LANGFUSE_HOST: str = "https://langfuse.yingsaidata.tech"
+
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
 settings = Settings()

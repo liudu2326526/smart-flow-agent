@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, onMounted } from 'vue';
 import { 
   IconUpload, 
   IconFilePdf, 
@@ -9,42 +9,22 @@ import {
   IconSync
 } from '@arco-design/web-vue/es/icon';
 import type { FileItem } from '@arco-design/web-vue';
-
-interface Document {
-  id: string;
-  name: string;
-  size: string;
-  status: 'indexing' | 'indexed' | 'failed';
-  uploadedAt: string;
-}
+import { getDocuments, uploadDocument, deleteDocument, type DocumentInfo } from '@/api/document';
+import { Message } from '@arco-design/web-vue';
 
 const loading = ref(false);
-const documents = ref<Document[]>([
-  {
-    id: '1',
-    name: '2024广告审核规范.pdf',
-    size: '2.5 MB',
-    status: 'indexed',
-    uploadedAt: '2024-05-20 10:00:00'
-  },
-  {
-    id: '2',
-    name: 'Q1产品手册.docx',
-    size: '1.2 MB',
-    status: 'indexing',
-    uploadedAt: '2024-05-20 11:30:00'
-  }
-]);
+const documents = ref<DocumentInfo[]>([]);
 
 const columns = [
   {
     title: '文件名',
-    dataIndex: 'name',
+    dataIndex: 'filename',
     slotName: 'name'
   },
   {
     title: '大小',
     dataIndex: 'size',
+    slotName: 'size'
   },
   {
     title: '状态',
@@ -53,7 +33,8 @@ const columns = [
   },
   {
     title: '上传时间',
-    dataIndex: 'uploadedAt',
+    dataIndex: 'uploaded_at',
+    slotName: 'uploaded_at'
   },
   {
     title: '操作',
@@ -61,28 +42,68 @@ const columns = [
   }
 ];
 
-const handleUpload = (files: FileItem[]) => {
-  // Mock upload logic
-  files.forEach(file => {
-    documents.value.unshift({
-      id: Date.now().toString(),
-      name: file.name,
-      size: (file.file?.size ? (file.file.size / 1024 / 1024).toFixed(2) : '0') + ' MB',
-      status: 'indexing',
-      uploadedAt: new Date().toLocaleString()
-    });
-    
-    // Simulate indexing completion
-    setTimeout(() => {
-      const doc = documents.value.find(d => d.name === file.name);
-      if (doc) doc.status = 'indexed';
-    }, 3000);
-  });
-  return true;
+const fetchDocs = async () => {
+  try {
+    loading.value = true;
+    const res = await getDocuments();
+    if (res.code === 200) {
+      documents.value = res.data;
+    }
+  } catch (e) {
+    console.error('Fetch docs error', e);
+    Message.error('获取文档列表失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
-const handleDelete = (record: Document) => {
-  documents.value = documents.value.filter(d => d.id !== record.id);
+onMounted(() => {
+  fetchDocs();
+});
+
+const handleUpload = async (fileList: FileItem[]) => {
+  const fileItem = fileList[fileList.length - 1];
+  if (!fileItem || !fileItem.file) return;
+
+  try {
+    const res = await uploadDocument(fileItem.file);
+    if (res.code === 200) {
+      Message.success('上传成功');
+      fetchDocs(); // Refresh list
+    } else {
+      Message.error(res.message || '上传失败');
+    }
+  } catch (e) {
+    console.error('Upload error', e);
+    Message.error('上传过程中发生错误');
+  }
+};
+
+const handleDelete = async (record: DocumentInfo) => {
+  try {
+    const res = await deleteDocument(record.id);
+    if (res.code === 200) {
+      Message.success('删除成功');
+      fetchDocs();
+    } else {
+      Message.error(res.message || '删除失败');
+    }
+  } catch (e) {
+    console.error('Delete error', e);
+    Message.error('删除过程中发生错误');
+  }
+};
+
+const formatSize = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateStr: string) => {
+  return new Date(dateStr).toLocaleString();
 };
 </script>
 
@@ -99,6 +120,7 @@ const handleDelete = (record: Document) => {
         :auto-upload="false"
         @change="handleUpload"
         :show-file-list="false"
+        accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"
       >
         <template #upload-button>
           <a-button type="primary">
@@ -110,25 +132,33 @@ const handleDelete = (record: Document) => {
     </div>
 
     <div class="table-container">
-      <a-table :columns="columns" :data="documents" :pagination="false">
+      <a-table :columns="columns" :data="documents" :loading="loading" :pagination="false">
         <template #name="{ record }">
           <div class="file-name">
-            <icon-file-pdf v-if="record.name.endsWith('.pdf')" class="file-icon pdf" />
+            <icon-file-pdf v-if="record.filename.endsWith('.pdf')" class="file-icon pdf" />
             <icon-file v-else class="file-icon" />
-            <span>{{ record.name }}</span>
+            <span>{{ record.filename }}</span>
           </div>
         </template>
         
+        <template #size="{ record }">
+          {{ formatSize(record.size) }}
+        </template>
+
         <template #status="{ record }">
           <a-tag v-if="record.status === 'indexed'" color="green">
             <template #icon><icon-check-circle /></template>
             已索引
           </a-tag>
-          <a-tag v-else-if="record.status === 'indexing'" color="blue" loading>
+          <a-tag v-else-if="record.status === 'indexing' || record.status === 'pending'" color="blue" loading>
             <template #icon><icon-sync spin /></template>
-            索引中
+            {{ record.status === 'indexing' ? '索引中' : '等待中' }}
           </a-tag>
           <a-tag v-else color="red">失败</a-tag>
+        </template>
+
+        <template #uploaded_at="{ record }">
+          {{ formatDate(record.uploaded_at) }}
         </template>
         
         <template #action="{ record }">

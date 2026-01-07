@@ -50,6 +50,8 @@ class Document(SQLModel, table=True):
     file_type: str
     size: int
     status: str = "pending" # pending, indexing, indexed, failed
+    session_id: Optional[str] = Field(default=None, foreign_key="conversation.id")
+    is_deleted: bool = Field(default=False)
     vector_id: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     

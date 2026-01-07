@@ -14,12 +14,18 @@ import {
 import type { FileItem } from '@arco-design/web-vue';
 import { useChat } from '@/hooks/useChat';
 import { useConversationStore } from '@/store/conversation';
+import { uploadDocument } from '@/api/document';
+import { Message as MessageNotify } from '@arco-design/web-vue';
 
 const route = useRoute();
 const router = useRouter();
 const inputVal = ref('');
 const scrollRef = ref<HTMLElement | null>(null);
 const conversationStore = useConversationStore();
+
+// Uploaded files for the current session
+const uploadedFiles = ref<any[]>([]);
+const isUploading = ref(false);
 
 // Initialize chat hook
 const { messages, loading, sendMessage, sessionId, deepThinking, loadHistory } = useChat({
@@ -37,9 +43,11 @@ watch(() => route.params.id, async (newId) => {
   if (newId) {
     sessionId.value = newId as string;
     await loadHistory();
+    uploadedFiles.value = []; // Clear files on session change
   } else {
     sessionId.value = `session_${Date.now()}`;
     messages.value = [];
+    uploadedFiles.value = [];
   }
 });
 
@@ -73,12 +81,19 @@ watch(() => messages.value[messages.value.length - 1]?.content, () => {
 }, { deep: true });
 
 const handleSend = async () => {
-  if (!inputVal.value.trim() || loading.value) return;
+  if (!inputVal.value.trim() && uploadedFiles.value.length === 0 || loading.value) return;
   
   const content = inputVal.value;
+  const urls = uploadedFiles.value
+    .filter(f => f.url)
+    .map(f => f.url as string);
+
   inputVal.value = ''; // Clear input immediately
   
-  await sendMessage(content);
+  await sendMessage(content, urls);
+  
+  // Clear uploaded files after sending (they are now part of the conversation)
+  uploadedFiles.value = [];
   
   // Refresh conversation list after sending message (to update title if generated)
   // Add a small delay to ensure backend has processed it
@@ -87,9 +102,34 @@ const handleSend = async () => {
   }, 2000);
 };
 
-const handleUpload = (files: FileItem[]) => {
-  // Mock upload
-  return true;
+const handleUpload = async (fileList: FileItem[]) => {
+  const fileItem = fileList[fileList.length - 1];
+  if (!fileItem || !fileItem.file) return;
+
+  try {
+    isUploading.value = true;
+    const res = await uploadDocument(fileItem.file, sessionId.value);
+    if (res.code === 200) {
+      uploadedFiles.value.push({
+        id: res.data.id,
+        name: res.data.filename,
+        url: res.data.url,
+        status: 'success'
+      });
+      MessageNotify.success('文件上传成功');
+    } else {
+      MessageNotify.error(res.message || '上传失败');
+    }
+  } catch (e) {
+    console.error('Upload error', e);
+    MessageNotify.error('上传过程中发生错误');
+  } finally {
+    isUploading.value = false;
+  }
+};
+
+const removeFile = (index: number) => {
+  uploadedFiles.value.splice(index, 1);
 };
 </script>
 
@@ -163,14 +203,23 @@ const handleUpload = (files: FileItem[]) => {
         </a-space>
       </div>
       <div class="input-wrapper">
+        <div v-if="uploadedFiles.length > 0" class="uploaded-files-preview">
+          <div v-for="(file, index) in uploadedFiles" :key="file.id" class="file-tag">
+            <icon-file />
+            <span class="file-name">{{ file.name }}</span>
+            <icon-close-circle @click="removeFile(index)" class="remove-icon" />
+          </div>
+        </div>
         <a-upload 
           action="/" 
           :auto-upload="false"
           @change="handleUpload"
           :show-file-list="false"
+          :disabled="isUploading"
+          accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"
         >
           <template #upload-button>
-            <a-button type="text" shape="circle">
+            <a-button type="text" shape="circle" :loading="isUploading">
               <icon-attachment />
             </a-button>
           </template>
@@ -356,24 +405,63 @@ const handleUpload = (files: FileItem[]) => {
   }
 
   .input-wrapper {
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 8px;
     display: flex;
     align-items: flex-end;
-    gap: 12px;
-    background: var(--color-fill-2);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid transparent;
-    transition: all 0.2s;
-    
+    gap: 8px;
+    transition: all 0.3s;
+    position: relative;
+    flex-wrap: wrap;
+
     &:focus-within {
       border-color: rgb(var(--primary-6));
-      background: var(--color-bg-1);
+      box-shadow: 0 0 0 2px rgba(var(--primary-6), 0.1);
+    }
+
+    .uploaded-files-preview {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 4px 8px 8px;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 4px;
+
+      .file-tag {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--color-fill-2);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        color: var(--color-text-2);
+
+        .file-name {
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .remove-icon {
+          cursor: pointer;
+          color: var(--color-text-4);
+          &:hover {
+            color: rgb(var(--danger-6));
+          }
+        }
+      }
     }
     
     .chat-input {
       background: transparent;
       border: none;
       padding: 0;
+      flex: 1;
       
       :deep(.arco-textarea) {
         background: transparent;

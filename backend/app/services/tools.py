@@ -85,4 +85,4 @@ def search_knowledge_base(query: str) -> str:
         return f"查询知识库时发生错误: {str(e)}"
 
 # 基础工具列表
-base_tools = [magic_calculator, get_weather, search_knowledge_base]
+base_tools = []

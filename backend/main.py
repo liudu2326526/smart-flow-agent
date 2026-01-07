@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1 import chat, conversations
+from app.api.v1 import chat, conversations, documents
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -21,6 +21,7 @@ if settings.BACKEND_CORS_ORIGINS:
 
 app.include_router(chat.router, prefix=f"{settings.API_V1_STR}", tags=["chat"])
 app.include_router(conversations.router, prefix=f"{settings.API_V1_STR}", tags=["conversations"])
+app.include_router(documents.router, prefix=f"{settings.API_V1_STR}", tags=["documents"])
 
 @app.get("/")
 def root():

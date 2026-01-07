@@ -10,7 +10,7 @@ class ChatCompletionRequest(BaseModel):
     messages: List[Message]
     stream: bool = True
     session_id: str
-    file_ids: Optional[List[str]] = []
+    urls: Optional[List[str]] = []
     deep_thinking: bool = False
     
     class Config:

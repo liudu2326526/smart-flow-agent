@@ -44,7 +44,7 @@ export function useChat(options: UseChatOptions = {}) {
     }
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, fileUrls?: string[]) => {
     if (!content.trim()) return;
 
     // 1. Add user message
@@ -87,7 +87,8 @@ export function useChat(options: UseChatOptions = {}) {
             })),
           stream: true,
           session_id: sessionId.value,
-          deep_thinking: deepThinking.value
+          deep_thinking: deepThinking.value,
+          urls: fileUrls || []
         })
       });
 

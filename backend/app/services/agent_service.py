@@ -92,6 +92,7 @@ class AgentService:
         self.agents = {}  # 使用字典存储不同配置的 Agent: {deep_thinking: bool -> agent}
         self._initialized = False
         self.langfuse_handler = None
+        self.llms = {}  # 存储不同配置的 LLM: {deep_thinking: bool -> llm}
 
     async def initialize(self):
         if self._initialized:
@@ -122,6 +123,23 @@ class AgentService:
         if not settings.OPENAI_API_KEY:
             logger.error("OPENAI_API_KEY is not set")
             raise ValueError("OPENAI_API_KEY is not set")
+        else:
+            self.llms[False] = ChatOpenAI(
+                model=settings.OPENAI_MODEL,
+                temperature=0,
+                base_url=settings.OPENAI_BASE_URL if settings.OPENAI_BASE_URL else None,
+                api_key=settings.OPENAI_API_KEY,
+                streaming=True,
+                extra_body={"thinking": {"type": "disabled"}},
+            )
+            self.llms[True] = ChatOpenAI(
+                model=settings.OPENAI_MODEL,
+                temperature=0,
+                base_url=settings.OPENAI_BASE_URL if settings.OPENAI_BASE_URL else None,
+                api_key=settings.OPENAI_API_KEY,
+                streaming=True,
+                extra_body={"thinking": {"type": "enabled"}},
+            )
 
         # 2. 加载 MCP 工具 (模拟连接，未来可从配置读取)
         # 这里可以根据需求加入 MCP Server 的配置参数
@@ -135,14 +153,7 @@ class AgentService:
         # 根据 deep_thinking 参数控制 disabled 和 enabled
         for deep_thinking in [False, True]:
             thinking_type = "enabled" if deep_thinking else "disabled"
-            mode_llm = ChatOpenAI(
-                model=settings.OPENAI_MODEL,
-                temperature=0,
-                base_url=settings.OPENAI_BASE_URL if settings.OPENAI_BASE_URL else None,
-                api_key=settings.OPENAI_API_KEY,
-                streaming=True,
-                extra_body={"thinking": {"type": thinking_type}},
-            )
+            mode_llm = self.llms[deep_thinking]
             self.agents[deep_thinking] = create_agent(mode_llm, self.all_tools)
             logger.info(
                 f"Initialized agent with deep_thinking={deep_thinking} (mode={thinking_type})"
@@ -170,7 +181,7 @@ class AgentService:
         prompt = ChatPromptTemplate.from_template(
             "请根据以下对话内容，生成一个简短的标题（不超过 10 个字）。不要使用引号。如果无法生成，返回 '新的对话'。\n\n对话内容：\n{conversation}"
         )
-        chain = prompt | self.llm | StrOutputParser()
+        chain = prompt | self.llms[False] | StrOutputParser()
 
         # 取前几条消息作为上下文
         conversation_text = "\n".join([f"{m.type}: {m.content}" for m in messages[:4]])

@@ -20,6 +20,7 @@ export function useChat(options: UseChatOptions = {}) {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const sessionId = ref(options.sessionId || `session_${Date.now()}`);
+  const deepThinking = ref(false);
 
   const loadHistory = async () => {
     try {
@@ -63,7 +64,8 @@ export function useChat(options: UseChatOptions = {}) {
       id: aiMsgId,
       type: 'ai',
       content: '',
-      status: 'thinking',
+      // 如果开启深度思考，初始状态为 thinking，否则为 writing (直接显示光标)
+      status: deepThinking.value ? 'thinking' : 'writing',
       createdAt: new Date().toISOString()
     });
     messages.value.push(aiMsg);
@@ -84,7 +86,8 @@ export function useChat(options: UseChatOptions = {}) {
               content: m.content
             })),
           stream: true,
-          session_id: sessionId.value
+          session_id: sessionId.value,
+          deep_thinking: deepThinking.value
         })
       });
 
@@ -100,7 +103,8 @@ export function useChat(options: UseChatOptions = {}) {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      aiMsg.status = 'writing';
+      // 移除这里的强制切换，让状态流转更自然
+      // aiMsg.status = 'writing';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -123,6 +127,10 @@ export function useChat(options: UseChatOptions = {}) {
               if (data.choices && data.choices[0].delta) {
                 const delta = data.choices[0].delta;
                 if (delta.content) {
+                  // 收到正文内容时，切换到 writing 状态
+                  if (aiMsg.status === 'thinking') {
+                    aiMsg.status = 'writing';
+                  }
                   aiMsg.content += delta.content;
                 }
                 if (delta.reasoning_content) {
@@ -155,8 +163,9 @@ export function useChat(options: UseChatOptions = {}) {
     messages,
     loading,
     error,
-    sendMessage,
     sessionId,
+    deepThinking,
+    sendMessage,
     loadHistory
   };
 }

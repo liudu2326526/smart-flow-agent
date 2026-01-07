@@ -11,6 +11,7 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = True
     session_id: str
     file_ids: Optional[List[str]] = []
+    deep_thinking: bool = False
     
     class Config:
         json_schema_extra = {
@@ -20,6 +21,7 @@ class ChatCompletionRequest(BaseModel):
                     {"role": "user", "content": "Hello"}
                 ],
                 "stream": True,
-                "session_id": "conv_123"
+                "session_id": "conv_123",
+                "deep_thinking": True
             }
         }

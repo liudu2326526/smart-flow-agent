@@ -237,7 +237,8 @@
   
   // --- 以下为 SmartFlow 扩展参数 (OpenAI SDK 允许传入 extra_body) ---
   "session_id": "conv_123456789", // 必需：用于关联会话上下文
-  "file_ids": ["doc_555"]         // 可选：本轮对话引用的文件
+  "file_ids": ["doc_555"],        // 可选：本轮对话引用的文件
+  "deep_thinking": true           // 可选：是否开启深度思考 (默认 false)
 }
 ```
 

@@ -8,7 +8,8 @@ import {
   IconUser,
   IconLoading,
   IconCheckCircle,
-  IconCloseCircle
+  IconCloseCircle,
+  IconBulb
 } from '@arco-design/web-vue/es/icon';
 import type { FileItem } from '@arco-design/web-vue';
 import { useChat } from '@/hooks/useChat';
@@ -21,7 +22,7 @@ const scrollRef = ref<HTMLElement | null>(null);
 const conversationStore = useConversationStore();
 
 // Initialize chat hook
-const { messages, loading, sendMessage, sessionId, loadHistory } = useChat({
+const { messages, loading, sendMessage, sessionId, deepThinking, loadHistory } = useChat({
   sessionId: route.params.id as string
 });
 
@@ -72,7 +73,7 @@ watch(() => messages.value[messages.value.length - 1]?.content, () => {
 }, { deep: true });
 
 const handleSend = async () => {
-  if (!inputVal.value.trim() && !loading.value) return;
+  if (!inputVal.value.trim() || loading.value) return;
   
   const content = inputVal.value;
   inputVal.value = ''; // Clear input immediately
@@ -152,6 +153,15 @@ const handleUpload = (files: FileItem[]) => {
 
     <!-- Input Area -->
     <div class="input-area">
+      <div class="input-options">
+        <a-space>
+          <a-switch v-model="deepThinking" size="small">
+            <template #checked-icon><icon-bulb /></template>
+            <template #unchecked-icon><icon-bulb /></template>
+          </a-switch>
+          <span class="option-label" :class="{ active: deepThinking }">深度思考</span>
+        </a-space>
+      </div>
       <div class="input-wrapper">
         <a-upload 
           action="/" 
@@ -329,6 +339,22 @@ const handleUpload = (files: FileItem[]) => {
   background: var(--color-bg-2);
   border-top: 1px solid var(--color-border);
   
+  .input-options {
+    margin-bottom: 8px;
+    padding-left: 4px;
+    
+    .option-label {
+      font-size: 12px;
+      color: var(--color-text-3);
+      transition: all 0.3s;
+      
+      &.active {
+        color: rgb(var(--primary-6));
+        font-weight: 500;
+      }
+    }
+  }
+
   .input-wrapper {
     display: flex;
     align-items: flex-end;

@@ -7,6 +7,9 @@ from app.services.agent_service import agent_service
 from app.db.session import get_session
 from app.db.models import Conversation, User
 from app.schemas.conversation import ConversationCreate, ConversationResponse
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -23,6 +26,7 @@ async def get_conversations(
     """
     获取会话列表
     """
+    logger.info(f"Fetching conversations for user_id={user_id}, page={page}, size={size}")
     # 计算总数
     total_statement = (
         select(func.count())
@@ -67,6 +71,7 @@ async def create_conversation(
     """
     创建新会话
     """
+    logger.info(f"Creating new conversation for user_id={conversation_in.user_id}, title={conversation_in.title}")
     try:
         user_id = conversation_in.user_id
 
@@ -98,6 +103,7 @@ async def create_conversation(
         session.commit()
         session.refresh(db_conversation)
 
+        logger.info(f"Conversation created successfully: session_id={db_conversation.id}")
         return {
             "code": 200,
             "message": "success",
@@ -108,9 +114,7 @@ async def create_conversation(
             },
         }
     except Exception as e:
-        import traceback
-        print(f"Error creating conversation: {str(e)}")
-        print(traceback.format_exc())
+        logger.error(f"Error creating conversation: {str(e)}", exc_info=True)
         return {
             "code": 500,
             "message": f"Internal Server Error: {str(e)}",
@@ -127,6 +131,7 @@ async def delete_conversation(
     """
     删除会话
     """
+    logger.info(f"Deleting conversation: session_id={session_id}, user_id={user_id}")
     # 查询会话
     conversation = session.exec(
         select(Conversation)
@@ -155,6 +160,7 @@ async def get_conversation_messages(
     """
     获取会话历史消息
     """
+    logger.info(f"Fetching messages for session_id={session_id}, user_id={user_id}, limit={limit}")
     try:
         # 验证会话是否属于该用户
         conversation = session.exec(
@@ -191,4 +197,5 @@ async def get_conversation_messages(
             "data": formatted_messages[-limit:],  # 简单的切片分页
         }
     except Exception as e:
+        logger.error(f"Error fetching messages for session_id={session_id}: {str(e)}", exc_info=True)
         return {"code": 500, "message": str(e), "data": None}

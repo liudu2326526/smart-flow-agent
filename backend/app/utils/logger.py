@@ -1,17 +1,18 @@
 import logging
+import os
 from pathlib import Path
+from app.core.config import settings
 
-# 获取项目根目录 (假设 utils 在 backend/app/utils)
-# PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-# 或者硬编码路径，根据之前的文件内容，路径是 /Users/macbook/cursor/smart-flow-agent
-LOG_ROOT = Path("/Users/macbook/cursor/smart-flow-agent/logs")
-LOG_ROOT.mkdir(parents=True, exist_ok=True)
+# 获取项目根目录，并创建日志目录
+# 根据项目结构，logs 目录应该在 backend 目录下
+LOG_DIR = Path(os.getcwd()) / settings.LOG_DIR
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE_PATH = LOG_DIR / settings.LOG_FILE
 
-def get_logger(name: str, filename: str = "app.log") -> logging.Logger:
+def get_logger(name: str) -> logging.Logger:
     """
-    获取配置好的 Logger
+    获取配置好的 Logger，所有 Logger 统一输出到 settings.LOG_FILE
     :param name: Logger 名称，通常传入 __name__
-    :param filename: 日志文件名，默认为 app.log
     :return: logging.Logger
     """
     logger = logging.getLogger(name)
@@ -20,21 +21,28 @@ def get_logger(name: str, filename: str = "app.log") -> logging.Logger:
     if logger.handlers:
         return logger
         
-    logger.setLevel(logging.INFO)
+    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    logger.setLevel(log_level)
     
-    # File Handler
-    file_handler = logging.FileHandler(LOG_ROOT / filename)
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(file_formatter)
+    # 统一的日志格式
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+    )
     
-    # Console Handler (Optional: 输出到控制台)
+    # File Handler - 统一写入到 app.log
+    file_handler = logging.FileHandler(LOG_FILE_PATH, encoding='utf-8')
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(formatter)
+    
+    # Console Handler - 同时输出到控制台
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(console_formatter)
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
     
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+    
+    # 防止日志向上级传播导致重复
+    logger.propagate = False
     
     return logger

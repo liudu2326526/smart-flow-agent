@@ -12,7 +12,7 @@ from app.schemas.document import DocumentResponse, DocumentListResponse
 from app.db.session import get_session
 from app.db.models import Document, User
 
-logger = get_logger(__name__, "documents.log")
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -28,6 +28,7 @@ async def get_documents(
     """
     获取用户的文档列表，支持按状态筛选。
     """
+    logger.info(f"Fetching documents for user_id={user_id}, status={status}")
     try:
         # 构建查询
         statement = select(Document).where(
@@ -182,6 +183,7 @@ async def delete_document(
     """
     逻辑删除文档记录。
     """
+    logger.info(f"Deleting document: doc_id={doc_id}, user_id={user_id}")
     try:
         # 查找文档
         db_document = db.exec(
@@ -199,8 +201,7 @@ async def delete_document(
         db_document.is_deleted = True
         db.add(db_document)
         db.commit()
-        
-        logger.info(f"✅ 文档已逻辑删除, ID: {doc_id}")
+        logger.info(f"Document marked as deleted: doc_id={doc_id}")
         
         return {
             "code": 200,

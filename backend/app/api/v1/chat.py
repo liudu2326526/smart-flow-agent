@@ -11,6 +11,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.schemas.chat import ChatCompletionRequest
 from app.core.config import settings
 from app.services.agent_service import agent_service
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -23,6 +26,8 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
     
     # Create the ID for this completion
     completion_id = f"chatcmpl-{int(time.time())}"
+    
+    logger.info(f"Starting stream response for session_id={session_id}")
     
     # 1. Send "thinking" event (Optional now since real thinking comes from LLM)
     # thinking_data = {
@@ -114,6 +119,7 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
 
     # Send [DONE] signal
     yield "data: [DONE]\n\n"
+    logger.info(f"Stream response completed for session_id={session_id}")
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
@@ -128,6 +134,7 @@ async def chat_completions(
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session)
 ):
+    logger.info(f"Received chat completion request: session_id={request.session_id}, user_id={request.user_id}, model={request.model}")
     # Check if we need to generate a title
     conv = session.exec(
         select(Conversation)

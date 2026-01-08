@@ -14,7 +14,7 @@ import langchain_openai.chat_models.base as base_module
 from app.utils.logger import get_logger
 
 # 配置日志
-logger = get_logger(__name__, "agent_service.log")
+logger = get_logger(__name__)
 
 # ==========================================
 # Monkey Patch: 支持 reasoning_content

@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: str = "sk-lf-3773953d-57c2-45c6-b0c4-2dc6dd0adc43" # 需替换为真实 Secret Key
     LANGFUSE_HOST: str = "https://langfuse.yingsaidata.tech"
 
+    # Logging
+    LOG_DIR: str = "logs"
+    LOG_FILE: str = "app.log"
+    LOG_LEVEL: str = "INFO"
+
     # OBS Configuration
     OBS_ENDPOINT: str = Field(default="obs.cn-south-1.myhuaweicloud.com", description="OBS Endpoint")
     OBS_AK: str = Field(default="SFDDLWTCP3BEQUP0JPIK", description="OBS Access Key")

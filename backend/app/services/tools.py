@@ -10,7 +10,7 @@ from pathlib import Path
 from app.utils.logger import get_logger
 
 # 配置日志
-logger = get_logger(__name__, "tools.log")
+logger = get_logger(__name__)
 
 # 全局变量缓存 VectorStore 实例，避免每次调用工具都重新连接
 _vectorstore = None

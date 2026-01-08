@@ -3,7 +3,7 @@ from obs import ObsClient
 from app.core.config import settings
 from app.utils.logger import get_logger
 
-logger = get_logger(__name__, "obs_utils.log")
+logger = get_logger(__name__)
 
 def get_obs_client():
     return ObsClient(

@@ -160,7 +160,6 @@ async def get_conversation_messages(
     """
     获取会话历史消息
     """
-    logger.info(f"Fetching messages for session_id={session_id}, user_id={user_id}, limit={limit}")
     try:
         # 验证会话是否属于该用户
         conversation = session.exec(

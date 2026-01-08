@@ -9,7 +9,7 @@ from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool, Tool
 from langchain_community.chat_message_histories import SQLChatMessageHistory
-from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk
+from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk, BaseMessage
 import langchain_openai.chat_models.base as base_module
 from app.utils.logger import get_logger
 
@@ -59,28 +59,39 @@ base_module._convert_delta_to_message_chunk = _patched_convert_delta_to_message_
 # End Monkey Patch
 
 
+from sqlmodel import Session, select
+from app.db.session import engine
+from app.db.models import Conversation, Message as DBMessage
 from app.core.config import settings
 from app.services.tools import base_tools
-
 
 # ==========================================
 # 2. Memory 管理
 # ==========================================
-def get_chat_history(session_id: str) -> SQLChatMessageHistory:
+def get_chat_history(session_id: str) -> List[BaseMessage]:
     """
-    获取基于 SQLite 的聊天记录管理器。
+    从数据库 Message 表中获取历史记录，并转换为 LangChain 消息对象。
     """
-    # 使用配置中的数据库 URL
-    return SQLChatMessageHistory(
-        session_id=session_id, connection=settings.DATABASE_URL
-    )
-
+    messages = []
+    with Session(engine) as db_session:
+        statement = select(DBMessage).where(DBMessage.session_id == session_id).order_by(DBMessage.created_at.asc())
+        db_messages = db_session.exec(statement).all()
+        for msg in db_messages:
+            additional_kwargs = {}
+            if msg.file_urls:
+                additional_kwargs["file_urls"] = msg.file_urls
+            
+            if msg.type == "human":
+                messages.append(HumanMessage(content=msg.content, additional_kwargs=additional_kwargs))
+            elif msg.type == "ai":
+                # 处理 reasoning_content
+                if msg.response_metadata and "reasoning_content" in msg.response_metadata:
+                    additional_kwargs["reasoning_content"] = msg.response_metadata["reasoning_content"]
+                messages.append(AIMessage(content=msg.content, additional_kwargs=additional_kwargs))
+    return messages
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-# ... (Existing imports)
-
 
 # ==========================================
 # 3. Agent Service 类
@@ -170,8 +181,7 @@ class AgentService:
         if not self._initialized:
             await self.initialize()
 
-        history = get_chat_history(session_id)
-        messages = history.messages
+        messages = get_chat_history(session_id)
 
         # 至少要有 2 条消息（一问一答）才生成标题，且如果消息太少可能不准确
         if not messages:
@@ -211,7 +221,7 @@ class AgentService:
             print(f"❌ Failed to generate title: {e}")
 
     async def chat(
-        self, session_id: str, user_input: str, deep_thinking: bool = False
+        self, session_id: str, user_input: str, deep_thinking: bool = False, urls: List[str] = None
     ) -> AsyncGenerator[str, None]:
         if not self._initialized:
             await self.initialize()
@@ -221,14 +231,17 @@ class AgentService:
         )
 
         # 1. 获取历史记录
-        history = get_chat_history(session_id)
-
-        # 采用 "最后一起保存" 策略
-        # 1. 获取当前 DB 中的历史
-        db_messages = history.messages
+        db_messages = get_chat_history(session_id)
 
         # 2. 构造本次对话的输入
-        current_messages = db_messages + [HumanMessage(content=user_input)]
+        user_msg_kwargs = {}
+        full_content = user_input
+        if urls:
+            user_msg_kwargs["file_urls"] = urls
+            # 将文件链接追加到内容中，方便 LLM 识别和调用工具
+            full_content += "\n\n[文件列表]:\n" + "\n".join(urls)
+        
+        current_messages = db_messages + [HumanMessage(content=full_content, additional_kwargs=user_msg_kwargs)]
 
         accumulated_content = ""
         accumulated_reasoning = ""
@@ -297,20 +310,37 @@ class AgentService:
                 logger.info("💡 AI End Thinking (Stream Ended)")
 
             # 4. 成功生成后，同时保存用户消息和 AI 消息
-            # 注意：这里有轻微的竞态风险，但在单用户 session 场景下可忽略
             if accumulated_content or accumulated_reasoning:
                 logger.info(f"Chat completed for session {session_id}. Saving history.")
-                history.add_user_message(user_input)
-                # 保存 AI 消息，包含思考内容
-                ai_msg = AIMessage(
-                    content=accumulated_content,
-                    additional_kwargs=(
-                        {"reasoning_content": accumulated_reasoning}
-                        if accumulated_reasoning
-                        else {}
-                    ),
-                )
-                history.add_message(ai_msg)
+                
+                with Session(engine) as db_session:
+                    # 保存用户消息
+                    user_db_msg = DBMessage(
+                        session_id=session_id,
+                        type="human",
+                        content=user_input,
+                        file_urls=urls if urls else None
+                    )
+                    db_session.add(user_db_msg)
+                    
+                    # 保存 AI 消息
+                    ai_db_msg = DBMessage(
+                        session_id=session_id,
+                        type="ai",
+                        content=accumulated_content,
+                        response_metadata={"reasoning_content": accumulated_reasoning} if accumulated_reasoning else None
+                    )
+                    db_session.add(ai_db_msg)
+                    
+                    # 更新会话更新时间
+                    conv = db_session.exec(select(Conversation).where(Conversation.id == session_id)).first()
+                    if conv:
+                        from datetime import datetime
+                        conv.updated_at = datetime.utcnow()
+                        db_session.add(conv)
+                        
+                    db_session.commit()
+                    logger.info(f"✅ History saved for session {session_id}")
             else:
                 logger.warning(f"No content generated for session {session_id}")
 
@@ -326,33 +356,29 @@ class AgentService:
         """
         获取历史消息，并转换为 API 格式。
         """
-        history = get_chat_history(session_id)
         messages = []
-        for msg in history.messages:
-            role = "user"
-            reasoning_content = None
-            if isinstance(msg, AIMessage):
-                role = "assistant"
-                # 从 additional_kwargs 中提取思考内容
-                if (
-                    msg.additional_kwargs
-                    and "reasoning_content" in msg.additional_kwargs
-                ):
-                    reasoning_content = msg.additional_kwargs["reasoning_content"]
-            elif isinstance(msg, HumanMessage):
-                role = "user"
+        with Session(engine) as db_session:
+            statement = select(DBMessage).where(DBMessage.session_id == session_id).order_by(DBMessage.created_at.asc())
+            db_messages = db_session.exec(statement).all()
+            
+            for msg in db_messages:
+                role = "user" if msg.type == "human" else "assistant"
+                reasoning_content = None
+                
+                if msg.type == "ai" and msg.response_metadata:
+                    reasoning_content = msg.response_metadata.get("reasoning_content")
 
-            # 暂时简化处理，只返回 type 和 content
-            # 实际场景可能需要处理 tool calls
-            message_data = {
-                "role": role,
-                "content": msg.content,
-                "type": "human" if role == "user" else "ai",  # 兼容 API 文档中的 type
-            }
-            if reasoning_content:
-                message_data["reasoning_content"] = reasoning_content
+                message_data = {
+                    "role": role,
+                    "content": msg.content,
+                    "type": msg.type,
+                    "file_urls": msg.file_urls,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None
+                }
+                if reasoning_content:
+                    message_data["reasoning_content"] = reasoning_content
 
-            messages.append(message_data)
+                messages.append(message_data)
         return messages
 
 

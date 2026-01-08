@@ -50,6 +50,7 @@ async def get_documents(
             {
                 "id": doc.id,
                 "filename": doc.filename,
+                "file_path": doc.file_path,
                 "status": doc.status,
                 "uploaded_at": doc.uploaded_at,
                 "size": doc.size

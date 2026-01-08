@@ -48,11 +48,12 @@ async def generate_stream_response(request: ChatCompletionRequest) -> AsyncGener
         # Get the last user message
         user_input = request.messages[-1].content if request.messages else ""
         deep_thinking = request.deep_thinking
+        urls = request.urls
         
         if not user_input:
             return
 
-        async for chunk_str in agent_service.chat(session_id, user_input, deep_thinking=deep_thinking):
+        async for chunk_str in agent_service.chat(session_id, user_input, deep_thinking=deep_thinking, urls=urls):
             try:
                 chunk_data = json.loads(chunk_str)
             except json.JSONDecodeError:

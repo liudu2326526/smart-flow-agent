@@ -6,6 +6,7 @@ export interface Message {
   content: string;
   reasoning_content?: string;
   status?: 'thinking' | 'writing' | 'completed' | 'error';
+  fileUrls?: string[];
   toolCalls?: any[];
   createdAt: string;
 }
@@ -33,6 +34,7 @@ export function useChat(options: UseChatOptions = {}) {
           type: msg.type,
           content: msg.content,
           reasoning_content: msg.reasoning_content,
+          fileUrls: msg.file_urls,
           status: 'completed',
           createdAt: msg.created_at
         }));
@@ -52,6 +54,7 @@ export function useChat(options: UseChatOptions = {}) {
       id: Date.now().toString(),
       type: 'human',
       content,
+      fileUrls,
       createdAt: new Date().toISOString()
     };
     messages.value.push(userMsg);

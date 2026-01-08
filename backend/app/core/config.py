@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = "e07ae987-1258-4bb5-94bb-277bdc9fc310"
     OPENAI_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
     OPENAI_MODEL: str = "doubao-seed-1-6-251015"
+    ARK_VISION_MODEL: str = "doubao-seed-1-6-vision-250815"
     
     # Vector DB
     VECTOR_DB_PATH: str = "./data/chroma_db"

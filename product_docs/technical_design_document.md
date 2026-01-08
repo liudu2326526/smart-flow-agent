@@ -145,7 +145,7 @@ erDiagram
         int id PK "文档唯一标识"
         int user_id FK "所属用户ID"
         string filename "原始文件名"
-        string file_path "服务器本地存储路径"
+        string file_path "文件存储路径 (本地路径或 OBS URL)"
         string file_type "文件类型后缀: pdf, docx, etc."
         int size "文件大小 (bytes)"
         string status "处理状态: pending/indexed/failed"

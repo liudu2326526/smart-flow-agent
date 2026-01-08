@@ -10,6 +10,7 @@ class DocumentBase(BaseModel):
 class DocumentInfo(BaseModel):
     id: int
     filename: str
+    file_path: str
     status: str
     uploaded_at: datetime
     size: int

@@ -177,37 +177,18 @@
   "message": "success",
   "data": [
     {
-      "id": 101,
+      "id": 1,
       "type": "human",
       "content": "帮我查一下天气",
+      "file_urls": ["https://..."],
       "created_at": "2024-05-20T10:01:00Z"
     },
     {
-      "id": 102,
+      "id": 2,
       "type": "ai",
-      "content": "",
-      "tool_calls": [
-        {
-          "id": "call_abc123",
-          "name": "get_weather",
-          "args": {"city": "Shenzhen"}
-        }
-      ],
-      "created_at": "2024-05-20T10:01:02Z"
-    },
-    {
-      "id": 103,
-      "type": "tool",
-      "tool_call_id": "call_abc123",
-      "name": "get_weather",
-      "content": "{\"temp\": 28, \"condition\": \"Cloudy\"}",
-      "created_at": "2024-05-20T10:01:03Z"
-    },
-    {
-      "id": 104,
-      "type": "ai",
-      "reasoning_content": "用户想了解天气，我需要调用天气工具...",
+      "reasoning_content": "用户想了解天气...",
       "content": "深圳今天多云，气温 28 度。",
+      "file_urls": null,
       "created_at": "2024-05-20T10:01:05Z"
     }
   ]
@@ -237,7 +218,7 @@
   
   // --- 以下为 SmartFlow 扩展参数 (OpenAI SDK 允许传入 extra_body) ---
   "session_id": "conv_123456789", // 必需：用于关联会话上下文
-  "file_ids": ["doc_555"],        // 可选：本轮对话引用的文件
+  "urls": ["https://..."],       // 可选：本轮对话引用的文件链接列表
   "deep_thinking": true           // 可选：是否开启深度思考 (默认 false)
 }
 ```
@@ -356,7 +337,8 @@ data: [DONE]
     "id": "doc_555",
     "filename": "2024规范.pdf",
     "size": 102400,
-    "status": "pending" // pending -> indexing -> indexed
+    "status": "pending", // pending -> indexing -> indexed
+    "url": "https://obs.example.com/documents/..."
   }
 }
 ```
@@ -374,10 +356,12 @@ data: [DONE]
   "message": "success",
   "data": [
     {
-      "id": "doc_555",
+      "id": 1,
       "filename": "2024规范.pdf",
-      "uploaded_at": "2024-01-01...",
-      "status": "indexed"
+      "file_path": "https://obs.example.com/documents/...",
+      "status": "indexed",
+      "uploaded_at": "2024-01-01T10:00:00Z",
+      "size": 102400
     }
   ]
 }

@@ -149,10 +149,11 @@ async def get_conversation_messages(session_id: str, limit: int = 50):
         formatted_messages = []
         for idx, msg in enumerate(messages):
             message_item = {
-                "id": idx + 1,  # 临时生成 ID
+                "id": idx + 1,  # 临时生成 ID 或使用 DB ID
                 "type": msg["type"],
                 "content": msg["content"],
-                "created_at": "2024-01-01T00:00:00Z",  # 暂无时间戳
+                "created_at": msg.get("created_at") or datetime.utcnow().isoformat(),
+                "file_urls": msg.get("file_urls")
             }
             if "reasoning_content" in msg:
                 message_item["reasoning_content"] = msg["reasoning_content"]

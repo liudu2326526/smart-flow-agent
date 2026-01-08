@@ -22,6 +22,7 @@ class ChatCompletionRequest(BaseModel):
                 ],
                 "stream": True,
                 "session_id": "conv_123",
-                "deep_thinking": True
+                "deep_thinking": True,
+                "urls": ["https://..."]
             }
         }

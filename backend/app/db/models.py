@@ -37,6 +37,7 @@ class Message(SQLModel, table=True):
     tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSONType))
     tool_call_id: Optional[str] = None
     name: Optional[str] = None # tool name
+    file_urls: Optional[List[str]] = Field(default=None, sa_column=Column(JSONType))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     conversation: Conversation = Relationship(back_populates="messages")

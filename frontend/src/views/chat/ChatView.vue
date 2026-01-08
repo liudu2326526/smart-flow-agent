@@ -9,7 +9,8 @@ import {
   IconLoading,
   IconCheckCircle,
   IconCloseCircle,
-  IconBulb
+  IconBulb,
+  IconFile
 } from '@arco-design/web-vue/es/icon';
 import type { FileItem } from '@arco-design/web-vue';
 import { useChat } from '@/hooks/useChat';
@@ -131,6 +132,14 @@ const handleUpload = async (fileList: FileItem[]) => {
 const removeFile = (index: number) => {
   uploadedFiles.value.splice(index, 1);
 };
+
+const getFileName = (url: string) => {
+  if (!url) return 'Unknown File';
+  const parts = url.split('/');
+  const filename = parts[parts.length - 1] || 'Unknown File';
+  // Remove the timestamp prefix if it exists (e.g., 1234567890_filename.txt)
+  return filename.replace(/^\d+_/, '');
+};
 </script>
 
 <template>
@@ -178,6 +187,21 @@ const removeFile = (index: number) => {
           <div class="bubble" v-if="msg.content || (msg.status !== 'thinking' && !msg.reasoning_content)">
             <div class="markdown-body">{{ msg.content }}</div>
             <span v-if="msg.status === 'writing'" class="cursor">|</span>
+          </div>
+
+          <!-- File Attachments -->
+          <div v-if="msg.fileUrls && msg.fileUrls.length > 0" class="message-attachments">
+            <a 
+              v-for="(url, index) in msg.fileUrls" 
+              :key="index" 
+              :href="url" 
+              target="_blank" 
+              class="attachment-link"
+              @click.stop
+            >
+              <icon-file />
+              <span class="file-name">{{ getFileName(url) }}</span>
+            </a>
           </div>
           
           <!-- Tools/Citations (Placeholder) -->
@@ -323,6 +347,39 @@ const removeFile = (index: number) => {
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+
+    .attachment-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--color-fill-2);
+      border-radius: 6px;
+      font-size: 13px;
+      color: rgb(var(--primary-6));
+      text-decoration: none;
+      transition: all 0.2s;
+      border: 1px solid var(--color-border);
+
+      &:hover {
+        background: var(--color-fill-3);
+        border-color: rgb(var(--primary-6));
+      }
+
+      .file-name {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
   }
   
   .thinking-bubble {

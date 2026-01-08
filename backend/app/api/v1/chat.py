@@ -129,7 +129,26 @@ async def chat_completions(
     session: Session = Depends(get_session)
 ):
     # Check if we need to generate a title
-    conv = session.exec(select(Conversation).where(Conversation.id == request.session_id)).first()
+    conv = session.exec(
+        select(Conversation)
+        .where(Conversation.id == request.session_id)
+        .where(Conversation.user_id == request.user_id)
+    ).first()
+    
+    if not conv:
+        # 如果会话不存在，自动创建一个
+        from datetime import datetime
+        conv = Conversation(
+            id=request.session_id,
+            user_id=request.user_id,
+            title="新的对话",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        session.add(conv)
+        session.commit()
+        session.refresh(conv)
+    
     if conv and (not conv.title or conv.title == "新的对话"):
         # Add background task to generate title
         background_tasks.add_task(agent_service.generate_summary_title, request.session_id)

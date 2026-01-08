@@ -6,6 +6,7 @@ class Message(BaseModel):
     content: str
 
 class ChatCompletionRequest(BaseModel):
+    user_id: str
     model: str = "smart-flow-agent-v1"
     messages: List[Message]
     stream: bool = True
@@ -16,6 +17,7 @@ class ChatCompletionRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "user_id": "user_123",
                 "model": "smart-flow-agent-v1",
                 "messages": [
                     {"role": "user", "content": "Hello"}

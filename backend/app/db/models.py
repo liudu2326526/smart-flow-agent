@@ -6,7 +6,7 @@ from sqlalchemy.types import JSON as JSONType
 
 # User Model
 class User(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: str = Field(primary_key=True)
     username: str = Field(index=True, unique=True)
     email: str = Field(unique=True)
     password_hash: str
@@ -18,7 +18,7 @@ class User(SQLModel, table=True):
 # Conversation Model
 class Conversation(SQLModel, table=True):
     id: str = Field(primary_key=True) # session_id (UUID)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: str = Field(foreign_key="user.id")
     title: Optional[str] = None
     is_deleted: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -45,7 +45,7 @@ class Message(SQLModel, table=True):
 # Document Model
 class Document(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: str = Field(foreign_key="user.id")
     filename: str
     file_path: str
     file_type: str

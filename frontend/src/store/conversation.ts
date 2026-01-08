@@ -16,7 +16,7 @@ export const useConversationStore = defineStore('conversation', () => {
   const fetchConversations = async (page = 1, size = 20) => {
     try {
       loading.value = true;
-      const res = await fetch(`/api/v1/conversations?page=${page}&size=${size}`);
+      const res = await fetch(`/api/v1/conversations?user_id=admin&page=${page}&size=${size}`);
       const data = await res.json();
       if (data.code === 200) {
         conversations.value = data.data.items;
@@ -34,7 +34,7 @@ export const useConversationStore = defineStore('conversation', () => {
       const res = await fetch('/api/v1/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title })
+        body: JSON.stringify({ title, user_id: 'admin' })
       });
       const data = await res.json();
       if (data.code === 200) {
@@ -49,7 +49,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   const deleteConversation = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/conversations/${id}`, {
+      const res = await fetch(`/api/v1/conversations/${id}?user_id=admin`, {
         method: 'DELETE'
       });
       const data = await res.json();

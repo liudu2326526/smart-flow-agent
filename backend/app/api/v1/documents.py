@@ -21,6 +21,7 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".png", ".jpg", ".jpeg"}
 
 @router.get("/documents", response_model=DocumentListResponse, summary="获取文档列表")
 async def get_documents(
+    user_id: str,
     status: Optional[str] = None,
     db: Session = Depends(get_session)
 ):
@@ -28,9 +29,6 @@ async def get_documents(
     获取用户的文档列表，支持按状态筛选。
     """
     try:
-        # 模拟用户 ID (MVP 阶段)
-        user_id = 1
-        
         # 构建查询
         statement = select(Document).where(
             Document.user_id == user_id,
@@ -70,6 +68,7 @@ async def get_documents(
 
 @router.post("/documents/upload", response_model=DocumentResponse, summary="上传文档到知识库")
 async def upload_document(
+    user_id: str = Form(..., description="用户标识"),
     file: UploadFile = File(..., description="要上传的文档文件"),
     session_id: Optional[str] = Form(None, description="可选，关联特定会话ID"),
     db: Session = Depends(get_session)
@@ -77,16 +76,14 @@ async def upload_document(
     """
     上传文档到知识库，并保存到 OBS 和数据库。
     """
-    logger.info(f"收到上传请求: filename={file.filename}, content_type={file.content_type}, session_id={session_id}")
+    logger.info(f"收到上传请求: user_id={user_id}, filename={file.filename}, content_type={file.content_type}, session_id={session_id}")
     try:
-        # 0. 模拟用户 ID (MVP 阶段)
-        user_id = 1
         user = db.exec(select(User).where(User.id == user_id)).first()
         if not user:
             user = User(
                 id=user_id,
-                username="admin",
-                email="admin@example.com",
+                username=f"user_{user_id}",
+                email=f"{user_id}@example.com",
                 password_hash="hash",
             )
             db.add(user)
@@ -179,15 +176,13 @@ async def upload_document(
 @router.delete("/documents/{doc_id}", summary="删除文档 (伪删除)")
 async def delete_document(
     doc_id: int,
+    user_id: str,
     db: Session = Depends(get_session)
 ):
     """
     逻辑删除文档记录。
     """
     try:
-        # 模拟用户 ID
-        user_id = 1
-        
         # 查找文档
         db_document = db.exec(
             select(Document).where(

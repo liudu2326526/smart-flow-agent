@@ -1,5 +1,5 @@
 export interface DocumentInfo {
-  id: number;
+  id: string;
   filename: string;
   status: string;
   uploaded_at: string;
@@ -16,7 +16,7 @@ export interface DocumentUploadResponse {
   code: number;
   message: string;
   data: {
-    id: number;
+    id: string;
     filename: string;
     size: number;
     status: string;
@@ -24,15 +24,19 @@ export interface DocumentUploadResponse {
   };
 }
 
-export const getDocuments = async (status?: string): Promise<DocumentListResponse> => {
-  const url = status ? `/api/v1/documents?status=${status}` : '/api/v1/documents';
+export const getDocuments = async (user_id: string = 'admin', status?: string): Promise<DocumentListResponse> => {
+  let url = `/api/v1/documents?user_id=${user_id}`;
+  if (status) {
+    url += `&status=${status}`;
+  }
   const res = await fetch(url);
   return res.json();
 };
 
-export const uploadDocument = async (file: File, sessionId?: string): Promise<DocumentUploadResponse> => {
+export const uploadDocument = async (file: File, sessionId?: string, user_id: string = 'admin'): Promise<DocumentUploadResponse> => {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('user_id', user_id);
   if (sessionId) {
     formData.append('session_id', sessionId);
   }
@@ -49,8 +53,8 @@ export const uploadDocument = async (file: File, sessionId?: string): Promise<Do
   return data;
 };
 
-export const deleteDocument = async (docId: number): Promise<{ code: number; message: string }> => {
-  const res = await fetch(`/api/v1/documents/${docId}`, {
+export const deleteDocument = async (docId: string, user_id: string = 'admin'): Promise<{ code: number; message: string }> => {
+  const res = await fetch(`/api/v1/documents/${docId}?user_id=${user_id}`, {
     method: 'DELETE',
   });
   return res.json();

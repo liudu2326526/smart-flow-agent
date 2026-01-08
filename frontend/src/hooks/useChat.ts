@@ -26,7 +26,7 @@ export function useChat(options: UseChatOptions = {}) {
   const loadHistory = async () => {
     try {
       loading.value = true;
-      const res = await fetch(`/api/v1/conversations/${sessionId.value}/messages`);
+      const res = await fetch(`/api/v1/conversations/${sessionId.value}/messages?user_id=admin`);
       const data = await res.json();
       if (data.code === 200) {
         messages.value = data.data.map((msg: any) => ({
@@ -90,6 +90,7 @@ export function useChat(options: UseChatOptions = {}) {
             })),
           stream: true,
           session_id: sessionId.value,
+          user_id: 'admin',
           deep_thinking: deepThinking.value,
           urls: fileUrls || []
         })

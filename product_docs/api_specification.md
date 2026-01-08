@@ -60,7 +60,7 @@
     "token_type": "bearer",
     "expires_in": 3600,
     "user": {
-      "id": 1,
+      "id": "user_123",
       "username": "admin",
       "role": "admin"
     }
@@ -79,7 +79,7 @@
   "code": 200,
   "message": "success",
   "data": {
-    "id": 1,
+    "id": "user_123",
     "username": "admin",
     "email": "admin@example.com",
     "role": "admin",
@@ -98,6 +98,7 @@
 - **URL**: `/conversations`
 - **Method**: `GET`
 - **Query Params**:
+  - `user_id`: string (必填，用户标识)
   - `page`: int (default: 1)
   - `size`: int (default: 20)
 
@@ -129,6 +130,7 @@
 **Request Body:**
 ```json
 {
+  "user_id": "user_789", // 必填，用户标识
   "title": "新的对话" // 可选，若不传则后端生成默认标题
 }
 ```
@@ -149,6 +151,8 @@
 ### 4.3 删除会话
 - **URL**: `/conversations/{session_id}`
 - **Method**: `DELETE`
+- **Query Params**:
+  - `user_id`: string (必填)
 
 **Response:**
 ```json
@@ -167,6 +171,7 @@
 - **URL**: `/conversations/{session_id}/messages`
 - **Method**: `GET`
 - **Query Params**:
+  - `user_id`: string (必填)
   - `limit`: int (default: 50) - 获取最近 N 条
   - `before_id`: int (optional) - 用于游标分页
 
@@ -206,6 +211,7 @@
 **Request Body (OpenAI Compatible):**
 ```json
 {
+  "user_id": "user_123", // 必需：用户标识
   "model": "smart-flow-agent-v1", // 必需，虽然是 Agent，但保持字段兼容
   "messages": [
     {
@@ -325,6 +331,7 @@ data: [DONE]
 - **Content-Type**: `multipart/form-data`
 
 **Form Data:**
+- `user_id`: (String) 必需，用户标识
 - `file`: (Binary) 文件内容
 - `session_id`: (String) 可选，若关联特定会话
 
@@ -334,7 +341,7 @@ data: [DONE]
   "code": 200,
   "message": "success",
   "data": {
-    "id": "doc_555",
+    "id": 555,
     "filename": "2024规范.pdf",
     "size": 102400,
     "status": "pending", // pending -> indexing -> indexed
@@ -347,6 +354,7 @@ data: [DONE]
 - **URL**: `/documents`
 - **Method**: `GET`
 - **Query Params**:
+  - `user_id`: string (必填)
   - `status`: string (optional) 筛选状态
 
 **Response (Success):**
@@ -369,6 +377,8 @@ data: [DONE]
 
 ### 6.3 删除文档
 - **URL**: `/documents/{doc_id}`
+- **Query Params**:
+  - `user_id`: string (必填)
 - **Method**: `DELETE`
 
 **Response:**
